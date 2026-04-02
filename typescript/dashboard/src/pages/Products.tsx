@@ -1,10 +1,20 @@
 import { useApi } from '../hooks/useApi';
+import { Card } from '../components/ui/card';
+import { motion, type Variants } from 'framer-motion';
+import { Plus, Package, Edit2, Trash2, Tag } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 interface Product {
   id: string;
+  shopify_product_id: string;
+  shopify_variant_id: string;
   title: string;
+  current_price: number;
+  cost_price: number;
+  profit_margin: number;
+  inventory_quantity: number;
+  last_stock_check: string;
   status: string;
-  variants: { edges: { node: { id: string; price: string } }[] };
 }
 
 interface ProductsResponse {
@@ -12,136 +22,156 @@ interface ProductsResponse {
   total: number;
 }
 
+const listVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+};
+
+const rowVariants: Variants = {
+  hidden: { opacity: 0, x: -10 },
+  show: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+};
+
 export default function Products() {
   const { data, loading } = useApi<ProductsResponse>('/api/products', 30000);
   const products = data?.products || [];
 
   // Mock products if API not connected
   const displayProducts = products.length > 0 ? products : [
-    { id: 'gid://1', title: 'LED Strip Lights RGB 5M', status: 'ACTIVE', variants: { edges: [{ node: { id: 'v1', price: '24.99' } }] } },
-    { id: 'gid://2', title: 'Wireless Earbuds Pro TWS', status: 'ACTIVE', variants: { edges: [{ node: { id: 'v2', price: '34.99' } }] } },
-    { id: 'gid://3', title: 'Magnetic Phone Car Mount', status: 'ACTIVE', variants: { edges: [{ node: { id: 'v3', price: '19.99' } }] } },
-    { id: 'gid://4', title: 'Portable Blender USB-C', status: 'ACTIVE', variants: { edges: [{ node: { id: 'v4', price: '29.99' } }] } },
-    { id: 'gid://5', title: 'Smart Watch Band Silicone', status: 'ACTIVE', variants: { edges: [{ node: { id: 'v5', price: '12.99' } }] } },
-    { id: 'gid://6', title: 'Ring Light 10" with Stand', status: 'DRAFT', variants: { edges: [{ node: { id: 'v6', price: '22.99' } }] } },
+    { id: '1', title: 'LED Strip Lights RGB 5M', status: 'ACTIVE', current_price: 24.99, cost_price: 12.50, profit_margin: 0.5, inventory_quantity: 42, last_stock_check: new Date().toISOString() } as any,
+    { id: '2', title: 'Wireless Earbuds Pro TWS', status: 'ACTIVE', current_price: 34.99, cost_price: 18.20, profit_margin: 0.48, inventory_quantity: 15, last_stock_check: new Date().toISOString() } as any,
+    { id: '3', title: 'Magnetic Phone Car Mount', status: 'ACTIVE', current_price: 19.99, cost_price: 6.80, profit_margin: 0.66, inventory_quantity: 0, last_stock_check: new Date().toISOString() } as any,
   ];
 
-  // Mock stats per product
-  const getProductStats = (index: number) => {
-    const stats = [
-      { sales: 42, revenue: 1049.58, margin: 0.45, cost: 8.5 },
-      { sales: 28, revenue: 979.72, margin: 0.38, cost: 14.2 },
-      { sales: 65, revenue: 1299.35, margin: 0.52, cost: 6.8 },
-      { sales: 19, revenue: 569.81, margin: 0.41, cost: 11.5 },
-      { sales: 87, revenue: 1130.13, margin: 0.55, cost: 4.2 },
-      { sales: 0, revenue: 0, margin: 0.40, cost: 9.0 },
-    ];
-    return stats[index % stats.length];
-  };
+
 
   return (
-    <div>
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h2>Products</h2>
-            <p>{displayProducts.length} active listings on Shopify</p>
-          </div>
-          <button className="btn btn-primary">+ Add Product</button>
+    <div className="space-y-8 pb-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-4xl font-black tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">Products</h2>
+          <p className="text-muted-foreground mt-1 text-sm font-medium">{displayProducts.length} active listings on Shopify</p>
         </div>
+        
+        <button className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-primary/25 active:scale-95">
+          <Plus size={16} strokeWidth={3} />
+          Add Product
+        </button>
       </div>
 
-      <div className="card">
-        <div className="table-container">
-          <table>
-            <thead>
+      {/* Main Table Card */}
+      <Card className="border-border/50 bg-card/60 backdrop-blur-3xl shadow-xl overflow-hidden">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-secondary/30 backdrop-blur-md border-b border-border/50 text-muted-foreground uppercase text-[10px] font-black tracking-widest">
               <tr>
-                <th>Product</th>
-                <th>Price</th>
-                <th>Cost</th>
-                <th>Margin</th>
-                <th>Sales</th>
-                <th>Revenue</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th className="px-6 py-4 rounded-tl-xl">Product</th>
+                <th className="px-6 py-4">Pricing</th>
+                <th className="px-6 py-4">Margin</th>
+                <th className="px-6 py-4">Inventory</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-right rounded-tr-xl">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <motion.tbody 
+              variants={listVariants}
+              initial="hidden"
+              animate="show"
+              className="divide-y divide-border/30"
+            >
               {loading && displayProducts.length === 0 ? (
-                <>
-                  {[1,2,3].map(i => (
-                    <tr key={i}>
-                      {[1,2,3,4,5,6,7,8].map(j => (
-                        <td key={j}><div className="skeleton" style={{ height: 16, width: '80%' }}></div></td>
-                      ))}
-                    </tr>
-                  ))}
-                </>
+                Array.from({ length: 3 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    {Array.from({ length: 6 }).map((_, j) => (
+                      <td key={j} className="px-6 py-5"><div className="h-4 bg-secondary rounded w-3/4" /></td>
+                    ))}
+                  </tr>
+                ))
               ) : (
-                displayProducts.map((product, index) => {
-                  const price = parseFloat(product.variants?.edges?.[0]?.node?.price || '0');
-                  const stats = getProductStats(index);
-                  const marginClass = stats.margin >= 0.4 ? 'high' : stats.margin >= 0.25 ? 'medium' : 'low';
+                displayProducts.map((product) => {
+                  const price = product.current_price;
+                  const cost = product.cost_price || (price * 0.6);
+                  const margin = product.profit_margin || ((price - cost) / price);
+                  
+                  const marginClass = margin >= 0.4 ? 'bg-emerald-500' : margin >= 0.25 ? 'bg-amber-500' : 'bg-red-500';
+                  const textMarginClass = margin >= 0.4 ? 'text-emerald-500' : margin >= 0.25 ? 'text-amber-500' : 'text-red-500';
+                  
+                  const stock = product.inventory_quantity;
+                  const stockClass = stock > 20 ? 'text-emerald-500' : stock > 5 ? 'text-amber-500' : 'text-red-500';
 
                   return (
-                    <tr key={product.id} className="fade-in-up">
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{
-                            width: 40, height: 40,
-                            borderRadius: 'var(--radius-md)',
-                            background: 'var(--bg-glass)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '1.2rem'
-                          }}>
-                            📦
+                    <motion.tr variants={rowVariants} key={product.id} className="hover:bg-secondary/20 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-secondary to-secondary/30 border border-border/50 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
+                            <Package size={20} className="text-primary" />
                           </div>
                           <div>
-                            <div style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.875rem' }}>
+                            <div className="font-bold text-foreground text-sm flex items-center gap-2">
                               {product.title.slice(0, 35)}{product.title.length > 35 ? '...' : ''}
                             </div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                              {product.id.slice(0, 20)}
+                            <div className="text-xs text-muted-foreground font-medium mt-0.5 font-mono uppercase">
+                              ID: {product.id.split('/').pop()}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>${price.toFixed(2)}</td>
-                      <td>${stats.cost.toFixed(2)}</td>
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '80px' }}>
-                          <span style={{
-                            fontWeight: 600,
-                            color: stats.margin >= 0.4 ? 'var(--accent-green)' : stats.margin >= 0.25 ? 'var(--accent-amber)' : 'var(--accent-red)'
-                          }}>
-                            {(stats.margin * 100).toFixed(0)}%
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1">
+                          <span className="font-black text-[15px] flex items-center gap-1"><Tag size={12} className="text-muted-foreground"/> ${price.toFixed(2)}</span>
+                          <span className="text-xs text-muted-foreground font-medium line-through decoration-muted-foreground/50">${(price * 1.5).toFixed(2)}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-2 w-24">
+                          <span className={cn("font-bold text-xs flex justify-between", textMarginClass)}>
+                            <span>{(margin * 100).toFixed(0)}%</span>
+                            <span className="text-muted-foreground">${cost.toFixed(2)} cost</span>
                           </span>
-                          <div className="profit-bar">
-                            <div className={`fill ${marginClass}`} style={{ width: `${stats.margin * 100}%` }}></div>
+                          <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden shadow-inner">
+                            <div className={cn("h-full rounded-full transition-all duration-1000", marginClass)} style={{ width: `${margin * 100}%` }} />
                           </div>
                         </div>
                       </td>
-                      <td style={{ fontWeight: 500 }}>{stats.sales}</td>
-                      <td style={{ fontWeight: 500, color: 'var(--accent-green)' }}>${stats.revenue.toFixed(2)}</td>
-                      <td>
-                        <span className={`badge ${product.status === 'ACTIVE' ? 'active' : 'pending'}`}>
-                          {product.status.toLowerCase()}
-                        </span>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button className="btn btn-ghost btn-sm">Edit</button>
-                          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--accent-red)' }}>Remove</button>
+                      <td className="px-6 py-4">
+                         <div className="flex flex-col gap-1">
+                          <span className={cn("font-black text-[15px] flex items-center gap-1", stockClass)}>
+                             {stock === 0 ? 'Out of Stock' : `${stock} in stock`}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
+                            Last Synced: {product.last_stock_check ? new Date(product.last_stock_check).toLocaleTimeString() : 'Never'}
+                          </span>
                         </div>
                       </td>
-                    </tr>
+                      <td className="px-6 py-4">
+                        <span className={cn(
+                          "px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-md border shadow-sm",
+                          product.status === 'ACTIVE' 
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                            : "bg-secondary text-muted-foreground border-border"
+                        )}>
+                          {product.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button className="p-2 bg-secondary/50 hover:bg-secondary text-foreground rounded-lg transition-colors border border-transparent hover:border-border/50 shadow-sm group-hover:shadow group/btn">
+                             <Edit2 size={15} className="group-hover/btn:text-primary transition-colors" />
+                          </button>
+                          <button className="p-2 bg-secondary/50 hover:bg-red-500/10 text-foreground rounded-lg transition-colors border border-transparent hover:border-red-500/20 shadow-sm group-hover:shadow group/btn">
+                             <Trash2 size={15} className="group-hover/btn:text-red-500 transition-colors" />
+                          </button>
+                        </div>
+                      </td>
+                    </motion.tr>
                   );
                 })
               )}
-            </tbody>
+            </motion.tbody>
           </table>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

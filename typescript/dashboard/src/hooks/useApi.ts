@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 
 const API_BASE = 'http://localhost:3001';
 
+const getStoreId = () => localStorage.getItem('activeStoreId') || 'store_primary';
+
 interface ApiState<T> {
   data: T | null;
   loading: boolean;
@@ -16,8 +18,19 @@ export function useApi<T>(endpoint: string, interval: number = 0): ApiState<T> {
 
   const fetchData = useCallback(async () => {
     try {
-      const resp = await fetch(`${API_BASE}${endpoint}`);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const storeId = getStoreId();
+      const resp = await fetch(`${API_BASE}${endpoint}`, {
+        headers: {
+          'X-Store-Id': storeId,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!resp.ok) {
+        const errJson = await resp.json().catch(() => ({}));
+        throw new Error(errJson.error || `HTTP ${resp.status}`);
+      }
+      
       const json = await resp.json();
       setData(json);
       setError(null);
@@ -40,15 +53,25 @@ export function useApi<T>(endpoint: string, interval: number = 0): ApiState<T> {
 }
 
 export async function apiPost(endpoint: string, body: any) {
+  const storeId = getStoreId();
   const resp = await fetch(`${API_BASE}${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'X-Store-Id': storeId
+    },
     body: JSON.stringify(body),
   });
   return resp.json();
 }
 
 export async function apiDelete(endpoint: string) {
-  const resp = await fetch(`${API_BASE}${endpoint}`, { method: 'DELETE' });
+  const storeId = getStoreId();
+  const resp = await fetch(`${API_BASE}${endpoint}`, { 
+    method: 'DELETE',
+    headers: {
+      'X-Store-Id': storeId
+    }
+  });
   return resp.json();
 }

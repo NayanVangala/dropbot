@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, Store, Check, Plus } from 'lucide-react';
+import { ChevronDown, Store, Check, Plus, Globe, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface Store {
+interface StoreItem {
   id: string;
   name: string;
   domain: string;
-  status: string;
+  isPrimary?: boolean;
 }
 
 export function StoreSwitcher() {
-  const [stores, setStores] = useState<Store[]>([]);
-  const [activeStore, setActiveStore] = useState<Store | null>(null);
+  const [stores, setStores] = useState<StoreItem[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -24,13 +24,7 @@ export function StoreSwitcher() {
       const resp = await fetch('http://localhost:3001/api/stores');
       const data = await resp.json();
       setStores(data.stores || []);
-      
-      const savedId = localStorage.getItem('activeStoreId') || 'store_primary';
-      const active = data.stores?.find((s: Store) => s.id === savedId) || data.stores?.[0];
-      if (active) {
-        setActiveStore(active);
-        localStorage.setItem('activeStoreId', active.id);
-      }
+      setActiveId(data.activeId);
     } catch (err) {
       console.error('Failed to fetch stores:', err);
     } finally {
@@ -38,27 +32,45 @@ export function StoreSwitcher() {
     }
   };
 
-  const selectStore = (store: Store) => {
-    setActiveStore(store);
-    localStorage.setItem('activeStoreId', store.id);
-    setIsOpen(false);
-    // Reload the page to refresh all data hooks with the new store context
-    window.location.reload();
+  const selectStore = async (id: string) => {
+    try {
+      const resp = await fetch('http://localhost:3001/api/stores/active', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+
+      if (resp.ok) {
+        setActiveId(id);
+        setIsOpen(false);
+        // Force a page reload to refresh all context for the new store
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Failed to switch store:', err);
+    }
   };
 
-  if (loading) return <div className="h-10 w-48 bg-secondary animate-pulse rounded-lg"></div>;
+  const activeStore = stores.find(s => s.id === activeId) || stores[0];
+
+  if (loading) return <div className="h-14 w-full bg-white/5 animate-pulse rounded-2xl border border-white/5"></div>;
 
   return (
-    <div className="relative">
+    <div className="relative w-full">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/50 border border-border hover:bg-secondary hover:border-primary/30 transition-all text-sm font-medium w-48 justify-between group"
+        className="group relative flex items-center gap-3 w-full p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/50 transition-all duration-300 backdrop-blur-sm"
       >
-        <div className="flex items-center gap-2 truncate">
-          <Store size={16} className="text-primary shrink-0" />
-          <span className="truncate">{activeStore?.name || 'Select Store'}</span>
+        <div className="h-10 w-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+          <Store size={20} />
         </div>
-        <ChevronDown size={14} className={`text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <div className="flex flex-col items-start min-w-0">
+          <span className="text-sm font-bold truncate w-full">{activeStore?.name || 'Select Store'}</span>
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-semibold truncate">
+            <Globe size={10} /> {activeStore?.domain}
+          </span>
+        </div>
+        <ChevronDown size={14} className={`ml-auto text-muted-foreground transition-transform duration-500 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       <AnimatePresence>
@@ -69,44 +81,51 @@ export function StoreSwitcher() {
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-              className="absolute top-full left-0 mt-2 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 py-2 backdrop-blur-xl bg-opacity-90"
+              transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              className="absolute top-full left-0 right-0 mt-4 bg-secondary/80 border border-white/10 rounded-2xl shadow-2xl z-50 py-3 backdrop-blur-2xl overflow-hidden"
             >
-              <div className="px-3 py-1 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Switch Store</span>
+              <div className="px-4 py-2 border-b border-white/5 mb-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary">Active Storefronts</span>
               </div>
               
-              <div className="max-h-60 overflow-y-auto px-1">
+              <div className="max-h-64 overflow-y-auto px-2 space-y-1">
                 {stores.map(store => (
                   <button
                     key={store.id}
-                    onClick={() => selectStore(store)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm hover:bg-secondary transition-colors group"
+                    onClick={() => selectStore(store.id)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 relative group ${
+                      activeId === store.id ? 'bg-primary/10' : 'hover:bg-white/5'
+                    }`}
                   >
-                    <div className="flex flex-col items-start gap-0.5 truncate">
-                      <span className={`font-medium ${activeStore?.id === store.id ? 'text-primary' : 'text-foreground'}`}>
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center transition-colors ${
+                      activeId === store.id ? 'bg-primary/20 text-primary' : 'bg-white/5 text-muted-foreground'
+                    }`}>
+                      <Activity size={16} />
+                    </div>
+                    <div className="flex flex-col items-start truncate overflow-hidden">
+                      <span className={`text-sm font-bold ${activeId === store.id ? 'text-foreground' : 'text-muted-foreground'}`}>
                         {store.name}
                       </span>
-                      <span className="text-xs text-muted-foreground truncate w-full flex items-center gap-1">
+                      <span className="text-[10px] text-muted-foreground/60 truncate font-medium">
                         {store.domain}
                       </span>
                     </div>
-                    {activeStore?.id === store.id && (
-                      <Check size={14} className="text-primary shrink-0" />
+                    {activeId === store.id && (
+                      <Check size={16} className="ml-auto text-primary" />
                     )}
                   </button>
                 ))}
               </div>
 
-              <div className="mt-2 pt-2 border-t border-border/50 px-1">
+              <div className="mt-3 pt-3 border-t border-white/5 px-2">
                 <button 
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold bg-primary text-white shadow-glow hover:translate-y-[-2px] transition-all"
                   onClick={() => {
-                    // This would ideally open the store management page
+                    // Logic to open modal can be handled by a global state or parent callback
                     setIsOpen(false);
                   }}
                 >
-                  <Plus size={14} /> Add New Store
+                  <Plus size={16} /> Add New Hub
                 </button>
               </div>
             </motion.div>

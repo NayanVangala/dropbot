@@ -52,6 +52,23 @@ export function useApi<T>(endpoint: string, interval: number = 0): ApiState<T> {
   return { data, loading, error, refetch: fetchData };
 }
 
+export async function apiGet<T>(endpoint: string): Promise<T | null> {
+  const storeId = getStoreId();
+  try {
+    const resp = await fetch(`${API_BASE}${endpoint}`, {
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Store-Id': storeId
+      },
+    });
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch (err) {
+    console.error(`apiGet failed for ${endpoint}:`, err);
+    return null;
+  }
+}
+
 export async function apiPost(endpoint: string, body: any) {
   const storeId = getStoreId();
   const resp = await fetch(`${API_BASE}${endpoint}`, {

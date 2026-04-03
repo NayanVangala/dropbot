@@ -5,14 +5,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/api.ts",
-    "start": "tsx src/api.ts",
-    "discord": "tsx src/discord.ts",
+    "dev": "npx tsx watch src/api.ts",
+    "start": "npx tsx src/api.ts",
+    "discord": "npx tsx src/discord.ts",
     "build": "tsc",
     "dashboard:dev": "cd dashboard && npm run dev",
     "dashboard:build": "cd dashboard && npm run build"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@shopify/admin-api-client": "^1.0.0",
     "cors": "^2.8.5",
     "discord.js": "^14.14.0",

@@ -9,6 +9,7 @@ from typing import Optional
 
 from openai import AsyncOpenAI
 
+import google.generativeai as genai
 from python.models import ProductCandidate, CustomerMessage
 
 logger = logging.getLogger("dropbot.ai")
@@ -17,36 +18,61 @@ logger = logging.getLogger("dropbot.ai")
 class AIEngine:
     """
     Manages all LLM interactions for the dropshipping bot.
-    Currently supports OpenAI — easily extensible to Anthropic/Ollama.
+    Natively supports Google Gemini, OpenAI APIs, and local offline Ollama models.
     """
 
     def __init__(self, config):
         self.config = config
         self.llm_config = config.llm
+        self.provider = self.llm_config.provider.lower()
 
-        if self.llm_config.provider == "openai":
-            self.client = AsyncOpenAI(api_key=self.llm_config.openai_api_key)
-            self.model = "gpt-4o-mini"  # Fast and cheap for product copy
-        else:
-            # Fallback — can be extended for Anthropic/Ollama
+        logger.info(f"Initializing AI Engine with provider: [{self.provider.upper()}]")
+
+        if self.provider == "gemini":
+            if not self.llm_config.gemini_api_key:
+                logger.warning("Gemini provider selected but GEMINI_API_KEY is missing.")
+            genai.configure(api_key=self.llm_config.gemini_api_key)
+            self.model = "gemini-1.5-flash"
+            
+        elif self.provider == "openai":
+            if not self.llm_config.openai_api_key:
+                logger.warning("OpenAI provider selected but OPENAI_API_KEY is missing.")
             self.client = AsyncOpenAI(api_key=self.llm_config.openai_api_key)
             self.model = "gpt-4o-mini"
+            
+        else:
+            logger.warning(f"Unknown LLM provider {self.provider}, falling back to Gemini.")
+            self.provider = "gemini"
+            genai.configure(api_key=self.llm_config.gemini_api_key)
+            self.model = "gemini-1.5-flash"
 
     async def _chat(self, system: str, user: str, temperature: float = 0.7) -> str:
-        """Make a chat completion call."""
+        """Make a chat completion call completely abstracted away from the caller."""
         try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                temperature=temperature,
-                max_tokens=1000,
-            )
-            return response.choices[0].message.content or ""
+            if self.provider == "gemini":
+                model = genai.GenerativeModel(self.model, system_instruction=system)
+                response = model.generate_content(
+                    user,
+                    generation_config=genai.GenerationConfig(
+                        temperature=temperature,
+                    )
+                )
+                return response.text or ""
+
+            else:
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    temperature=temperature,
+                    max_tokens=1500,
+                )
+                return response.choices[0].message.content or ""
+            
         except Exception as e:
-            logger.error(f"LLM call failed: {e}")
+            logger.error(f"[{self.provider.upper()}] LLM Call Failed: {e}")
             return ""
 
     # ─── Product Copy Generation ────────────────────────

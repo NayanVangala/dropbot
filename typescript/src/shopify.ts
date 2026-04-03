@@ -57,10 +57,23 @@ interface ShopifyOrder {
 
 // ─── GraphQL Client ────────────────────────────────────
 
-async function shopifyGraphQL<T = any>(query: string, variables?: Record<string, any>): Promise<T> {
-  const response = await fetch(config.shopify.graphqlUrl, {
+async function shopifyGraphQL<T = any>(
+  query: string, 
+  variables?: Record<string, any>,
+  creds?: { store_domain: string, access_token: string }
+): Promise<T> {
+  const domain = creds?.store_domain || config.shopify.storeDomain;
+  const token = creds?.access_token || config.shopify.accessToken;
+  
+  const url = `https://${domain}/admin/api/${config.shopify.apiVersion}/graphql.json`;
+  const headers = {
+    "X-Shopify-Access-Token": token,
+    "Content-Type": "application/json",
+  };
+
+  const response = await fetch(url, {
     method: 'POST',
-    headers: config.shopify.headers,
+    headers,
     body: JSON.stringify({ query, variables }),
   });
 
@@ -80,7 +93,10 @@ async function shopifyGraphQL<T = any>(query: string, variables?: Record<string,
 
 // ─── Product Operations ────────────────────────────────
 
-export async function createProduct(input: ProductInput): Promise<{ productId: string; variantId: string }> {
+export async function createProduct(
+  input: ProductInput,
+  creds?: { store_domain: string, access_token: string }
+): Promise<{ productId: string; variantId: string }> {
   const mutation = `
     mutation productCreate($input: ProductInput!) {
       productCreate(input: $input) {
@@ -120,7 +136,7 @@ export async function createProduct(input: ProductInput): Promise<{ productId: s
         description: input.seoDescription,
       },
     },
-  });
+  }, creds);
 
   const result = data.productCreate;
   if (result.userErrors?.length > 0) {
@@ -136,7 +152,8 @@ export async function createProduct(input: ProductInput): Promise<{ productId: s
 
 export async function updateProductPrice(
   variantId: string,
-  newPrice: string
+  newPrice: string,
+  creds?: { store_domain: string, access_token: string }
 ): Promise<void> {
   const mutation = `
     mutation productVariantUpdate($input: ProductVariantInput!) {
@@ -158,7 +175,7 @@ export async function updateProductPrice(
       id: variantId,
       price: newPrice,
     },
-  });
+  }, creds);
 
   const result = data.productVariantUpdate;
   if (result.userErrors?.length > 0) {
@@ -168,7 +185,10 @@ export async function updateProductPrice(
   console.log(`✅ Updated price for variant ${variantId} to $${newPrice}`);
 }
 
-export async function getProducts(first: number = 50): Promise<ShopifyProduct[]> {
+export async function getProducts(
+  first: number = 50,
+  creds?: { store_domain: string, access_token: string }
+): Promise<ShopifyProduct[]> {
   const query = `
     query getProducts($first: Int!) {
       products(first: $first, sortKey: CREATED_AT, reverse: true) {
@@ -191,11 +211,14 @@ export async function getProducts(first: number = 50): Promise<ShopifyProduct[]>
     }
   `;
 
-  const data = await shopifyGraphQL(query, { first });
+  const data = await shopifyGraphQL(query, { first }, creds);
   return data.products.edges.map((edge: any) => edge.node);
 }
 
-export async function deleteProduct(productId: string): Promise<void> {
+export async function deleteProduct(
+  productId: string,
+  creds?: { store_domain: string, access_token: string }
+): Promise<void> {
   const mutation = `
     mutation productDelete($input: ProductDeleteInput!) {
       productDelete(input: $input) {
@@ -210,14 +233,17 @@ export async function deleteProduct(productId: string): Promise<void> {
 
   await shopifyGraphQL(mutation, {
     input: { id: productId },
-  });
+  }, creds);
 
   console.log(`🗑️ Deleted Shopify product: ${productId}`);
 }
 
 // ─── Order Operations ──────────────────────────────────
 
-export async function getRecentOrders(first: number = 20): Promise<ShopifyOrder[]> {
+export async function getRecentOrders(
+  first: number = 20,
+  creds?: { store_domain: string, access_token: string }
+): Promise<ShopifyOrder[]> {
   const query = `
     query getOrders($first: Int!) {
       orders(first: $first, sortKey: CREATED_AT, reverse: true) {
@@ -245,7 +271,7 @@ export async function getRecentOrders(first: number = 20): Promise<ShopifyOrder[
     }
   `;
 
-  const data = await shopifyGraphQL(query, { first });
+  const data = await shopifyGraphQL(query, { first }, creds);
   return data.orders.edges.map((edge: any) => edge.node);
 }
 
@@ -253,7 +279,8 @@ export async function addFulfillmentTracking(
   orderId: string,
   trackingNumber: string,
   trackingUrl: string = '',
-  trackingCompany: string = ''
+  trackingCompany: string = '',
+  creds?: { store_domain: string, access_token: string }
 ): Promise<void> {
   // First, get the fulfillment order
   const fulfillmentQuery = `
@@ -271,7 +298,7 @@ export async function addFulfillmentTracking(
     }
   `;
 
-  const foData = await shopifyGraphQL(fulfillmentQuery, { orderId });
+  const foData = await shopifyGraphQL(fulfillmentQuery, { orderId }, creds);
   const fulfillmentOrderId = foData.order?.fulfillmentOrders?.edges?.[0]?.node?.id;
 
   if (!fulfillmentOrderId) {
@@ -305,7 +332,7 @@ export async function addFulfillmentTracking(
       },
       notifyCustomer: true,
     },
-  });
+  }, creds);
 
   const result = data.fulfillmentCreateV2;
   if (result.userErrors?.length > 0) {
@@ -317,24 +344,96 @@ export async function addFulfillmentTracking(
 
 // ─── Stats ─────────────────────────────────────────────
 
-export async function getShopStats(): Promise<{
+export async function getShopStats(creds?: { store_domain: string, access_token: string }): Promise<{
+  shopName: string;
+  currencyCode: string;
   totalProducts: number;
   totalOrders: number;
+  totalRevenue: number;
 }> {
   const query = `
     query shopStats {
+      shop {
+        name
+        currencyCode
+      }
       productsCount { count }
       ordersCount { count }
+      orders(first: 50, sortKey: CREATED_AT, reverse: true) {
+        edges {
+          node {
+            totalPriceSet { shopMoney { amount } }
+          }
+        }
+      }
     }
   `;
 
   try {
-    const data = await shopifyGraphQL(query);
+    const data = await shopifyGraphQL(query, {}, creds);
+    const revenue = data.orders?.edges?.reduce((acc: number, edge: any) => {
+      return acc + parseFloat(edge.node.totalPriceSet?.shopMoney?.amount || '0');
+    }, 0) || 0;
+
     return {
+      shopName: data.shop?.name || 'My Store',
+      currencyCode: data.shop?.currencyCode || 'USD',
       totalProducts: data.productsCount?.count || 0,
       totalOrders: data.ordersCount?.count || 0,
+      totalRevenue: revenue,
     };
+  } catch (error) {
+    console.error('Error fetching shop stats:', error);
+    return { 
+      shopName: 'Unknown', 
+      currencyCode: 'USD', 
+      totalProducts: 0, 
+      totalOrders: 0, 
+      totalRevenue: 0 
+    };
+  }
+}
+
+/**
+ * Get revenue grouped by day for the last 7 days.
+ */
+export async function getDailyRevenueStats(creds?: { store_domain: string, access_token: string }): Promise<{ name: string, revenue: number, profit: number, orders: number }[]> {
+  const query = `
+    query dailyStats {
+      orders(first: 50, sortKey: CREATED_AT, reverse: true) {
+        edges {
+          node {
+            totalPriceSet { shopMoney { amount } }
+            createdAt
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await shopifyGraphQL(query, {}, creds);
+    const dayMap: Record<string, { revenue: number, orders: number }> = {};
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    data.orders.edges.forEach((edge: any) => {
+      const date = new Date(edge.node.createdAt);
+      const dayName = days[date.getDay()];
+      const amount = parseFloat(edge.node.totalPriceSet?.shopMoney?.amount || '0');
+      
+      if (!dayMap[dayName]) dayMap[dayName] = { revenue: 0, orders: 0 };
+      dayMap[dayName].revenue += amount;
+      dayMap[dayName].orders += 1;
+    });
+
+    // Return in order of the week starting from current day backwards
+    return days.map(name => ({
+      name,
+      revenue: dayMap[name]?.revenue || 0,
+      profit: (dayMap[name]?.revenue || 0) * 0.3, // 30% estimated profit
+      orders: dayMap[name]?.orders || 0
+    }));
   } catch {
-    return { totalProducts: 0, totalOrders: 0 };
+    return [];
   }
 }

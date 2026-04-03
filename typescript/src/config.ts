@@ -53,6 +53,10 @@ export const config = {
     enabled: env('PICOCLAW_ENABLED', 'true') === 'true',
     configPath: env('PICOCLAW_CONFIG_PATH', '~/.picoclaw/config.json'),
   },
+
+  gemini: {
+    apiKey: env('GEMINI_API_KEY'),
+  },
 } as const;
 
 export type Config = typeof config;

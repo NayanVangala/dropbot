@@ -34,17 +34,18 @@ class ShopifyConfig:
 
 @dataclass(frozen=True)
 class DiscordConfig:
-    bot_token: str
-    client_id: str
-    guild_id: str
-    channel_id: str
+    bot_token: str = ""
+    client_id: str = ""
+    guild_id: str = ""
+    channel_id: str = ""
 
 
 @dataclass(frozen=True)
 class LLMConfig:
-    provider: str  # "openai" | "anthropic" | "ollama"
+    provider: str  # "openai" | "anthropic" | "ollama" | "gemini"
     openai_api_key: str = ""
     anthropic_api_key: str = ""
+    gemini_api_key: str = ""
     ollama_base_url: str = "http://localhost:11434"
 
 
@@ -56,6 +57,9 @@ class ScraperConfig:
     min_review_count: int = 50
     max_competitor_count: int = 20
     scrape_interval_hours: int = 6
+    cj_api_key: str = ""
+    cj_access_token: Optional[str] = None
+    replicate_api_token: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -99,15 +103,16 @@ def load_config() -> Config:
             api_version=_env("SHOPIFY_API_VERSION", "2025-01"),
         ),
         discord=DiscordConfig(
-            bot_token=_env("DISCORD_BOT_TOKEN"),
-            client_id=_env("DISCORD_CLIENT_ID"),
-            guild_id=_env("DISCORD_GUILD_ID"),
-            channel_id=_env("DISCORD_CHANNEL_ID"),
+            bot_token=_env("DISCORD_BOT_TOKEN", "", required=False),
+            client_id=_env("DISCORD_CLIENT_ID", "", required=False),
+            guild_id=_env("DISCORD_GUILD_ID", "", required=False),
+            channel_id=_env("DISCORD_CHANNEL_ID", "", required=False),
         ),
         llm=LLMConfig(
-            provider=_env("LLM_PROVIDER", "openai"),
+            provider=_env("LLM_PROVIDER", "gemini"),
             openai_api_key=_env("OPENAI_API_KEY", "", required=False),
             anthropic_api_key=_env("ANTHROPIC_API_KEY", "", required=False),
+            gemini_api_key=_env("GEMINI_API_KEY", "", required=False),
             ollama_base_url=_env("OLLAMA_BASE_URL", "http://localhost:11434", required=False),
         ),
         scraper=ScraperConfig(
@@ -117,6 +122,8 @@ def load_config() -> Config:
             min_review_count=int(_env("MIN_REVIEW_COUNT", "50")),
             max_competitor_count=int(_env("MAX_COMPETITOR_COUNT", "20")),
             scrape_interval_hours=int(_env("SCRAPE_INTERVAL_HOURS", "6")),
+            cj_api_key=_env("CJ_API_KEY", "", required=False),
+            cj_access_token=_env("CJ_ACCESS_TOKEN", "", required=False),
         ),
         price_monitor=PriceMonitorConfig(
             check_interval_minutes=int(_env("PRICE_CHECK_INTERVAL_MINUTES", "15")),

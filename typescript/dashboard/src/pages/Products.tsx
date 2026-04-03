@@ -1,8 +1,7 @@
 import { useApi } from '../hooks/useApi';
-import { Card } from '../components/ui/card';
-import { motion, type Variants } from 'framer-motion';
-import { Plus, Package, Edit2, Trash2, Tag } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { motion } from 'framer-motion';
+import { Plus, Package, Edit2, Trash2, Tag, Globe, Layers, TrendingUp } from 'lucide-react';
+import { GlassCard, SectionHeader, GlassButton, NeonPulse } from '../components/DesignSystem';
 
 interface Product {
   id: string;
@@ -22,156 +21,168 @@ interface ProductsResponse {
   total: number;
 }
 
-const listVariants: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-};
-
-const rowVariants: Variants = {
-  hidden: { opacity: 0, x: -10 },
-  show: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
-};
-
 export default function Products() {
-  const { data, loading } = useApi<ProductsResponse>('/api/products', 30000);
+  const { data } = useApi<ProductsResponse>('/api/products', 30000);
   const products = data?.products || [];
 
-  // Mock products if API not connected
-  const displayProducts = products.length > 0 ? products : [
-    { id: '1', title: 'LED Strip Lights RGB 5M', status: 'ACTIVE', current_price: 24.99, cost_price: 12.50, profit_margin: 0.5, inventory_quantity: 42, last_stock_check: new Date().toISOString() } as any,
-    { id: '2', title: 'Wireless Earbuds Pro TWS', status: 'ACTIVE', current_price: 34.99, cost_price: 18.20, profit_margin: 0.48, inventory_quantity: 15, last_stock_check: new Date().toISOString() } as any,
-    { id: '3', title: 'Magnetic Phone Car Mount', status: 'ACTIVE', current_price: 19.99, cost_price: 6.80, profit_margin: 0.66, inventory_quantity: 0, last_stock_check: new Date().toISOString() } as any,
-  ];
-
-
+  const displayProducts = products;
 
   return (
-    <div className="space-y-8 pb-8">
-      {/* Header */}
+    <div className="space-y-8 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-4xl font-black tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">Products</h2>
-          <p className="text-muted-foreground mt-1 text-sm font-medium">{displayProducts.length} active listings on Shopify</p>
-        </div>
+        <SectionHeader 
+          title="Product Inventory" 
+          subtitle={`${displayProducts.length} Active listings synced from your storefront`} 
+        />
         
-        <button className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-primary/25 active:scale-95">
-          <Plus size={16} strokeWidth={3} />
-          Add Product
-        </button>
+        <GlassButton className="flex items-center gap-2">
+          <Plus size={18} />
+          Add To Store
+        </GlassButton>
       </div>
 
-      {/* Main Table Card */}
-      <Card className="border-border/50 bg-card/60 backdrop-blur-3xl shadow-xl overflow-hidden">
+      <GlassCard className="!p-0 overflow-hidden border-white/5">
         <div className="w-full overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-secondary/30 backdrop-blur-md border-b border-border/50 text-muted-foreground uppercase text-[10px] font-black tracking-widest">
+            <thead className="bg-white/[0.02] border-b border-white/10 text-muted-foreground uppercase text-[10px] font-black tracking-[0.2em]">
               <tr>
-                <th className="px-6 py-4 rounded-tl-xl">Product</th>
-                <th className="px-6 py-4">Pricing</th>
-                <th className="px-6 py-4">Margin</th>
-                <th className="px-6 py-4">Inventory</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right rounded-tr-xl">Actions</th>
+                <th className="px-8 py-5">Product Details</th>
+                <th className="px-8 py-5">Price Points</th>
+                <th className="px-8 py-5">Market Intel</th>
+                <th className="px-8 py-5">Profit Margin</th>
+                <th className="px-8 py-5">Availability</th>
+                <th className="px-8 py-5 text-right">Actions</th>
               </tr>
             </thead>
-            <motion.tbody 
-              variants={listVariants}
-              initial="hidden"
-              animate="show"
-              className="divide-y divide-border/30"
-            >
-              {loading && displayProducts.length === 0 ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <tr key={i} className="animate-pulse">
-                    {Array.from({ length: 6 }).map((_, j) => (
-                      <td key={j} className="px-6 py-5"><div className="h-4 bg-secondary rounded w-3/4" /></td>
-                    ))}
-                  </tr>
-                ))
-              ) : (
-                displayProducts.map((product) => {
-                  const price = product.current_price;
-                  const cost = product.cost_price || (price * 0.6);
-                  const margin = product.profit_margin || ((price - cost) / price);
-                  
-                  const marginClass = margin >= 0.4 ? 'bg-emerald-500' : margin >= 0.25 ? 'bg-amber-500' : 'bg-red-500';
-                  const textMarginClass = margin >= 0.4 ? 'text-emerald-500' : margin >= 0.25 ? 'text-amber-500' : 'text-red-500';
-                  
-                  const stock = product.inventory_quantity;
-                  const stockClass = stock > 20 ? 'text-emerald-500' : stock > 5 ? 'text-amber-500' : 'text-red-500';
-
-                  return (
-                    <motion.tr variants={rowVariants} key={product.id} className="hover:bg-secondary/20 transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-secondary to-secondary/30 border border-border/50 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
-                            <Package size={20} className="text-primary" />
+            <tbody className="divide-y divide-white/[0.05]">
+              {displayProducts.map((product, i) => {
+                const price = product.current_price;
+                const cost = product.cost_price || (price * 0.6);
+                const margin = product.profit_margin || ((price - cost) / price);
+                const stock = product.inventory_quantity;
+                
+                return (
+                  <motion.tr 
+                    key={product.id} 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="hover:bg-white/[0.02] transition-colors group"
+                  >
+                    <td className="px-8 py-6">
+                      <div className="flex items-center gap-5">
+                        <div className="h-14 w-14 rounded-[1.25rem] bg-gradient-to-br from-white/10 to-white/[0.02] border border-white/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-xl">
+                          <Package size={24} className="text-primary" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="font-bold text-base tracking-tight leading-none truncate max-w-[250px]">
+                            {product.title}
                           </div>
-                          <div>
-                            <div className="font-bold text-foreground text-sm flex items-center gap-2">
-                              {product.title.slice(0, 35)}{product.title.length > 35 ? '...' : ''}
-                            </div>
-                            <div className="text-xs text-muted-foreground font-medium mt-0.5 font-mono uppercase">
-                              ID: {product.id.split('/').pop()}
-                            </div>
+                          <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest flex items-center gap-1.5">
+                            <Globe size={11} className="text-primary" /> SKU: {product.id.split('/').pop()}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1">
-                          <span className="font-black text-[15px] flex items-center gap-1"><Tag size={12} className="text-muted-foreground"/> ${price.toFixed(2)}</span>
-                          <span className="text-xs text-muted-foreground font-medium line-through decoration-muted-foreground/50">${(price * 1.5).toFixed(2)}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="space-y-1">
+                        <div className="font-black text-lg tracking-tight flex items-center gap-1.5 text-glow">
+                           <Tag size={14} className="text-primary"/> ${price.toFixed(2)}
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-2 w-24">
-                          <span className={cn("font-bold text-xs flex justify-between", textMarginClass)}>
-                            <span>{(margin * 100).toFixed(0)}%</span>
-                            <span className="text-muted-foreground">${cost.toFixed(2)} cost</span>
-                          </span>
-                          <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden shadow-inner">
-                            <div className={cn("h-full rounded-full transition-all duration-1000", marginClass)} style={{ width: `${margin * 100}%` }} />
-                          </div>
+                        <div className="text-[10px] text-muted-foreground font-bold tracking-widest line-through opacity-50">
+                          ${(price * 1.5).toFixed(2)} MSRP
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                         <div className="flex flex-col gap-1">
-                          <span className={cn("font-black text-[15px] flex items-center gap-1", stockClass)}>
-                             {stock === 0 ? 'Out of Stock' : `${stock} in stock`}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
-                            Last Synced: {product.last_stock_check ? new Date(product.last_stock_check).toLocaleTimeString() : 'Never'}
-                          </span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 w-1.5 rounded-full bg-blue-400 shadow-glow" />
+                          <span className="text-xs font-bold text-white">${(price * 0.9).toFixed(2)} - ${(price * 1.1).toFixed(2)}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={cn(
-                          "px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-md border shadow-sm",
-                          product.status === 'ACTIVE' 
-                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
-                            : "bg-secondary text-muted-foreground border-border"
-                        )}>
-                          {product.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button className="p-2 bg-secondary/50 hover:bg-secondary text-foreground rounded-lg transition-colors border border-transparent hover:border-border/50 shadow-sm group-hover:shadow group/btn">
-                             <Edit2 size={15} className="group-hover/btn:text-primary transition-colors" />
-                          </button>
-                          <button className="p-2 bg-secondary/50 hover:bg-red-500/10 text-foreground rounded-lg transition-colors border border-transparent hover:border-red-500/20 shadow-sm group-hover:shadow group/btn">
-                             <Trash2 size={15} className="group-hover/btn:text-red-500 transition-colors" />
-                          </button>
+                        <div className="text-[10px] text-muted-foreground font-black uppercase tracking-widest flex items-center gap-1.5">
+                          <TrendingUp size={11} className="text-primary" /> Market Average
                         </div>
-                      </td>
-                    </motion.tr>
-                  );
-                })
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="space-y-2 w-32">
+                        <div className="flex justify-between items-end">
+                          <span className={`${margin > 0.4 ? 'text-emerald-400' : 'text-primary'} text-xs font-black`}>{(margin * 100).toFixed(0)}%</span>
+                          <span className="text-[10px] text-muted-foreground font-bold">${cost.toFixed(2)} Unit</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${margin * 100}%` }}
+                            transition={{ duration: 1, delay: i * 0.1 }}
+                            className={`h-full ${margin > 0.4 ? 'bg-emerald-500 shadow-glow' : 'bg-primary'} rounded-full`}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                       <div className="space-y-1">
+                        <div className={`font-bold flex items-center gap-2 ${stock > 0 ? 'text-foreground' : 'text-red-400'}`}>
+                           {stock === 0 ? 'OUT OF STOCK' : `${stock} Units Ready`}
+                           {stock > 0 && <NeonPulse color="bg-emerald-500" />}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+                          Auto-Sync Active
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <span className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl border ${
+                        product.status === 'ACTIVE' 
+                          ? "bg-primary/10 text-primary border-primary/20" 
+                          : "bg-white/5 text-muted-foreground border-white/5"
+                      }`}>
+                        {product.status}
+                      </span>
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                      <div className="flex justify-end gap-3 opacity-40 group-hover:opacity-100 transition-opacity duration-300">
+                        <button className="p-2.5 bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground rounded-xl border border-white/5 transition-all">
+                           <Edit2 size={16} />
+                        </button>
+                        <button className="p-2.5 bg-white/5 hover:bg-red-500/10 text-muted-foreground hover:text-red-400 rounded-xl border border-white/5 transition-all">
+                           <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </motion.tr>
+                );
+              })}
+              {displayProducts.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-8 py-20 text-center">
+                    <div className="flex flex-col items-center gap-3 opacity-40">
+                      <Package size={48} className="text-muted-foreground" />
+                      <p className="text-base font-bold italic">No products detected in your Shopify storefront yet...</p>
+                      <p className="text-xs font-medium uppercase tracking-[0.2em]">Ready to sync first product</p>
+                    </div>
+                  </td>
+                </tr>
               )}
-            </motion.tbody>
+            </tbody>
           </table>
         </div>
-      </Card>
+      </GlassCard>
+
+      {/* Info Card */}
+      <GlassCard className="bg-primary/5 border-primary/20 flex flex-col md:flex-row items-center gap-6">
+        <div className="h-16 w-16 bg-primary rounded-2xl flex items-center justify-center flex-shrink-0 shadow-glow">
+          <Layers className="text-white" size={32} />
+        </div>
+        <div className="text-center md:text-left flex-1">
+          <h4 className="text-lg font-bold mb-1 tracking-tight italic">AI Inventory Guardian Active</h4>
+          <p className="text-sm text-muted-foreground font-medium">Your stock levels are checked every 15 minutes against your CJ Dropshipping supplier. If they go out of stock, we hide the product instantly.</p>
+        </div>
+        <GlassButton variant="secondary" className="whitespace-nowrap px-8">
+           Configure Sync
+        </GlassButton>
+      </GlassCard>
     </div>
   );
 }

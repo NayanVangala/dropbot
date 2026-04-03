@@ -125,13 +125,14 @@ class DropBotScheduler:
                 # Format for PicoClaw / Discord
                 report = self.ai.format_for_picoclaw(candidates)
 
-                # Send to Discord
-                import httpx
-                async with httpx.AsyncClient() as client:
-                    await client.post(
-                        f"http://localhost:{config.api_port}/api/discord/notify",
-                        json={"message": report},
-                    )
+                # Send to Discord (if configured)
+                if config.discord.guild_id and config.discord.channel_id:
+                    import httpx
+                    async with httpx.AsyncClient() as client:
+                        await client.post(
+                            f"http://localhost:{config.api_port}/api/discord/notify",
+                            json={"message": report},
+                        )
 
                 logger.info(f"✅ Scrape complete: {len(candidates)} new candidates")
             else:
@@ -191,12 +192,13 @@ class DropBotScheduler:
 
             report = self.ai.format_daily_report(stats)
 
-            import httpx
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"http://localhost:{config.api_port}/api/discord/notify",
-                    json={"message": report},
-                )
+            if config.discord.guild_id and config.discord.channel_id:
+                import httpx
+                async with httpx.AsyncClient() as client:
+                    await client.post(
+                        f"http://localhost:{config.api_port}/api/discord/notify",
+                        json={"message": report},
+                    )
 
             logger.info("✅ Daily report sent")
 
@@ -231,14 +233,44 @@ class DropBotScheduler:
                     "\nConsider removing these products to keep the store lean."
                 )
 
-                import httpx
-                async with httpx.AsyncClient() as client:
-                    await client.post(
-                        f"http://localhost:{config.api_port}/api/discord/notify",
-                        json={"message": "\n".join(report_lines)},
-                    )
+                if config.discord.guild_id and config.discord.channel_id:
+                    import httpx
+                    async with httpx.AsyncClient() as client:
+                        await client.post(
+                            f"http://localhost:{config.api_port}/api/discord/notify",
+                            json={"message": "\n".join(report_lines)},
+                        )
 
             logger.info(f"✅ Weekly analysis: {len(underperformers)} underperformers flagged")
 
         except Exception as e:
             logger.error(f"❌ Weekly analysis failed: {e}")
+
+
+if __name__ == "__main__":
+    # Configure logging
+    logging.basicConfig(
+        level=config.log_level or "INFO",
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        handlers=[
+            logging.FileHandler("dropbot.log"),
+            logging.StreamHandler()
+        ]
+    )
+
+    async def main():
+        """Main entry point for the scheduler."""
+        scheduler = DropBotScheduler()
+        scheduler.start()
+        
+        try:
+            # Keep the main task running
+            while True:
+                await asyncio.sleep(1)
+        except (KeyboardInterrupt, SystemExit):
+            scheduler.stop()
+
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass
